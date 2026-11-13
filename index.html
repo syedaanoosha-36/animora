@@ -1,1 +1,409 @@
-This first version includes a dark-purple interface, an interactive 3D viewport, character controls, scene controls, animation playback and a Claude chat panel (the actual Claude connection comes in the next stage).
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#100d19">
+<title>Animora — AI Animation Studio</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#100d19;color:#eee9f7;font-family:Arial,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{height:100vh;height:100dvh;display:flex;overflow:hidden}
+.sidebar{width:215px;flex-shrink:0;background:#171323;border-right:1px solid #302641;padding:20px 13px;display:flex;flex-direction:column;gap:12px}
+.logo{font-size:25px;font-weight:900;letter-spacing:2px;color:#c19aff;padding:5px 7px}
+.logo small{display:block;font-size:9px;letter-spacing:3px;color:#91849f;margin-top:8px}
+.section{font-size:10px;color:#82778f;letter-spacing:2px;margin:17px 8px 5px}
+.nav{padding:12px 10px;border-radius:8px;color:#aaa0b8;font-size:13px;cursor:pointer}
+.nav:hover,.nav.active{background:#302344;color:#d7bdff}
+.sidebar-bottom{margin-top:auto;font-size:10px;color:#857b91;padding:10px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:60px;flex-shrink:0;border-bottom:1px solid #302641;display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:8px}
+.project{font-size:12px;color:#b9adc9}
+.top-actions{display:flex;gap:7px}
+.btn{background:#302344;color:#e8d9ff;border:1px solid #51406b;padding:9px 12px;border-radius:8px;font-size:11px}
+.btn:hover{background:#493360}
+.btn.primary{background:#8554d6;border-color:#a47be8;color:white}
+.workspace{flex:1;min-height:0;display:flex;flex-direction:column;padding:13px;gap:10px;overflow:auto}
+.scene-head{display:flex;justify-content:space-between;align-items:center;font-size:11px}
+.scene-head span{color:#9b8eaa}
+.viewport{position:relative;flex:1;min-height:260px;border:1px solid #49375e;border-radius:12px;overflow:hidden;background:#211a35}
+#stage{width:100%;height:100%;display:block}
+.overlay{position:absolute;top:12px;left:12px;background:#171323cc;padding:8px 11px;border-radius:7px;font-size:10px;color:#d7c5ff;pointer-events:none}
+.tools{display:flex;gap:7px;flex-wrap:wrap}
+.panel{background:#191424;border:1px solid #302641;border-radius:10px;padding:12px;min-width:0}
+.panel-title{font-size:11px;font-weight:bold;margin-bottom:10px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chat{display:flex;flex-direction:column;gap:8px}
+.messages{height:100px;overflow:auto;font-size:11px;color:#c9bdd9;line-height:1.5}
+.message{background:#282039;padding:8px;border-radius:8px;margin-bottom:6px;overflow-wrap:anywhere}
+.ai{color:#c4a0ff}
+.chat-input{display:flex;gap:6px}
+input{background:#100d19;color:white;border:1px solid #40334f;border-radius:7px;padding:10px;width:100%;min-width:0;outline:none;font-size:12px}
+input:focus{border-color:#a47be4}
+.controls{display:flex;gap:6px;flex-wrap:wrap}
+.controls button{flex:1;min-width:55px}
+.timeline{height:110px;flex-shrink:0}
+.track{display:flex;gap:5px;margin-top:12px;overflow:auto}
+.clip{height:32px;min-width:75px;background:#49326d;border:1px solid #7751a5;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#eee;flex:1}
+.status{font-size:10px;color:#a88bd0}
+@media(max-width:650px){
+.sidebar{width:62px;padding:12px 5px;align-items:center}
+.logo{font-size:0;padding:5px}.logo:first-letter{font-size:25px}
+.logo small,.section,.nav span,.sidebar-bottom{display:none}
+.nav{font-size:18px;width:48px;text-align:center;padding:13px 3px}
+.topbar{height:52px;padding:0 8px}
+.top-actions .btn{padding:8px;font-size:10px}
+.workspace{padding:8px}
+.bottom{grid-template-columns:1fr}
+.viewport{min-height:260px}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<aside class="sidebar">
+<div class="logo">ANIMORA
+<small>IMAGINE. ANIMATE. CREATE.</small>
+</div>
+
+<div class="section">WORKSPACE</div>
+<div class="nav active">◈ <span>Studio</span></div>
+<div class="nav">▣ <span>Characters</span></div>
+<div class="nav">▤ <span>Scenes</span></div>
+<div class="nav">◷ <span>Projects</span></div>
+
+<div class="section">AI TOOLS</div>
+<div class="nav">✦ <span>Claude AI</span></div>
+<div class="nav">⚙ <span>Settings</span></div>
+
+<div class="sidebar-bottom">ANIMORA STUDIO · V1.0</div>
+</aside>
+
+<main class="main">
+
+<header class="topbar">
+<div class="project">My Projects / <b>Untitled Animation</b></div>
+<div class="top-actions">
+<button class="btn" onclick="newScene()">＋ Scene</button>
+<button class="btn primary" onclick="exportVideo()">Export</button>
+</div>
+</header>
+
+<div class="workspace">
+
+<div class="scene-head">
+<b>3D SCENE VIEWPORT</b>
+<span id="status">● Engine ready</span>
+</div>
+
+<div class="viewport">
+<canvas id="stage"></canvas>
+<div class="overlay">ANIMORA · 3D WORKSPACE</div>
+</div>
+
+<div class="tools">
+<button class="btn" onclick="addCharacter()">＋ Character</button>
+<button class="btn" onclick="changeBackground()">Environment</button>
+<button class="btn" onclick="animateCharacter()">▶ Animate</button>
+<button class="btn" onclick="resetScene()">↺ Reset</button>
+</div>
+
+<div class="bottom">
+
+<div class="panel">
+<div class="panel-title">✦ CHARACTER CONTROLS</div>
+<div class="controls">
+<button class="btn" onclick="moveCharacter(-1)">← Move</button>
+<button class="btn" onclick="moveCharacter(1)">Move →</button>
+<button class="btn" onclick="jump()">Jump ↑</button>
+</div>
+<p style="font-size:10px;color:#93869e">
+Add characters and control their movement.
+</p>
+<div class="status" id="characterCount">1 character</div>
+</div>
+
+<div class="panel chat">
+<div class="panel-title"><span class="ai">✦</span> CLAUDE AI ASSISTANT</div>
+
+<div class="messages" id="messages">
+<div class="message">
+<span class="ai">Animora:</span>
+Welcome to your animation studio! Claude integration is coming next.
+</div>
+</div>
+
+<div class="chat-input">
+<input id="prompt" placeholder="Describe your cartoon..." onkeydown="if(event.key==='Enter')sendMessage()">
+<button class="btn primary" onclick="sendMessage()">Send</button>
+</div>
+</div>
+
+</div>
+
+<div class="panel timeline">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div class="panel-title">◷ ANIMATION TIMELINE</div>
+<div class="controls">
+<button class="btn" onclick="play()">▶</button>
+<button class="btn" onclick="pause()">Ⅱ</button>
+</div>
+</div>
+<div class="track" id="track">
+<div class="clip">Scene 01</div>
+<div class="clip">Character</div>
+<div class="clip">Camera</div>
+</div>
+</div>
+
+</div>
+</main>
+</div>
+
+<script type="importmap">
+{
+ "imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+ }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+
+const canvas=document.getElementById("stage");
+const scene=new THREE.Scene();
+scene.background=new THREE.Color("#24203b");
+scene.fog=new THREE.Fog("#24203b",18,45);
+
+const camera=new THREE.PerspectiveCamera(45,1,.1,100);
+camera.position.set(6,5,9);
+
+const renderer=new THREE.WebGLRenderer({
+ canvas,
+ antialias:true
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.target.set(0,1,0);
+
+scene.add(new THREE.HemisphereLight(0xc9baff,0x342344,2));
+
+const light=new THREE.DirectionalLight(0xffffff,3);
+light.position.set(5,9,5);
+light.castShadow=true;
+scene.add(light);
+
+const floor=new THREE.Mesh(
+ new THREE.PlaneGeometry(100,100),
+ new THREE.MeshStandardMaterial({
+  color:"#51456a",
+  roughness:1
+ })
+);
+floor.rotation.x=-Math.PI/2;
+floor.receiveShadow=true;
+scene.add(floor);
+
+const grid=new THREE.GridHelper(30,30,"#8062aa","#55446e");
+grid.position.y=.015;
+scene.add(grid);
+
+let characters=[];
+let running=false;
+let time=0;
+let backgroundIndex=0;
+
+function createCharacter(x=0){
+ const group=new THREE.Group();
+
+ const purple=new THREE.MeshStandardMaterial({color:"#a477ee"});
+ const skin=new THREE.MeshStandardMaterial({color:"#ffcc9f"});
+ const dark=new THREE.MeshStandardMaterial({color:"#292038"});
+
+ function sphere(radius,material,pos,scale=[1,1,1]){
+  const mesh=new THREE.Mesh(
+   new THREE.SphereGeometry(radius,24,18),
+   material
+  );
+  mesh.position.set(...pos);
+  mesh.scale.set(...scale);
+  mesh.castShadow=true;
+  group.add(mesh);
+  return mesh;
+ }
+
+ sphere(.48,purple,[0,1.35,0],[.75,1,.5]);
+ sphere(.37,skin,[0,2.25,0]);
+ sphere(.38,dark,[0,2.48,-.04],[1,.45,1]);
+
+ sphere(.055,dark,[-.13,2.28,.32]);
+ sphere(.055,dark,[.13,2.28,.32]);
+
+ const legs=[];
+
+ for(const side of [-1,1]){
+  const leg=sphere(.16,dark,[side*.17,.53,0],[.65,1.8,.7]);
+  legs.push(leg);
+  sphere(.19,dark,[side*.17,.12,.08],[1,.5,1.5]);
+ }
+
+ group.userData.legs=legs;
+ group.userData.baseY=0;
+ group.position.x=x;
+
+ scene.add(group);
+ characters.push(group);
+
+ updateCount();
+ return group;
+}
+
+createCharacter();
+
+function resize(){
+ const w=canvas.clientWidth;
+ const h=canvas.clientHeight;
+ if(!w||!h)return;
+ camera.aspect=w/h;
+ camera.updateProjectionMatrix();
+ renderer.setSize(w,h,false);
+}
+
+new ResizeObserver(resize).observe(canvas);
+
+function loop(){
+ requestAnimationFrame(loop);
+
+ controls.update();
+
+ if(running){
+  time+=.035;
+
+  characters.forEach(c=>{
+   c.position.y=c.userData.baseY+Math.abs(Math.sin(time*3))*.18;
+
+   c.userData.legs.forEach((leg,i)=>{
+    leg.rotation.x=Math.sin(time*5+i*Math.PI)*.35;
+   });
+  });
+ }
+
+ renderer.render(scene,camera);
+}
+
+resize();
+loop();
+
+function updateCount(){
+ document.getElementById("characterCount").textContent=
+ characters.length+" character"+(characters.length===1?"":"s");
+}
+
+window.addCharacter=()=>{
+ createCharacter((Math.random()-.5)*3);
+ document.getElementById("status").textContent="Character added";
+};
+
+window.moveCharacter=(direction)=>{
+ if(!characters.length)return;
+ characters[characters.length-1].position.x+=direction*.5;
+};
+
+window.jump=()=>{
+ characters.forEach(c=>{
+  c.position.y=c.userData.baseY+1;
+  setTimeout(()=>{
+   c.position.y=c.userData.baseY;
+  },500);
+ });
+};
+
+window.animateCharacter=()=>{
+ running=true;
+ document.getElementById("status").textContent="● Animation playing";
+};
+
+window.play=()=>{
+ running=true;
+ document.getElementById("status").textContent="● Playing";
+};
+
+window.pause=()=>{
+ running=afalse;
+ characters.forEach(c=>{
+  c.position.y=c.userData.baseY;
+  c.userData.legs.forEach(l=>l.rotation.x=0);
+ });
+ document.getElementById("status").textContent="● Paused";
+};
+
+window.resetScene=()=>{
+ characters.forEach(c=>scene.remove(c));
+ characters=[];
+ running=false;
+ time=0;
+ createCharacter();
+ camera.position.set(6,5,9);
+ controls.target.set(0,1,0);
+ document.getElementById("status").textContent="● Scene reset";
+};
+
+window.newScene=()=>{
+ const track=document.getElementById("track");
+ const number=track.children.length+1;
+ const clip=document.createElement("div");
+ clip.className="clip";
+ clip.textContent="Scene "+String(number).padStart(2,"0");
+ track.appendChild(clip);
+ document.getElementById("status").textContent="New scene added";
+};
+
+window.changeBackground=()=>{
+ const colors=["#24203b","#24445a","#516044","#583d55","#343a52"];
+ backgroundIndex=(backgroundIndex+1)%colors.length;
+ scene.background.set(colors[backgroundIndex]);
+ scene.fog.color.set(colors[backgroundIndex]);
+ document.getElementById("status").textContent="Environment changed";
+};
+
+window.sendMessage=()=>{
+ const input=document.getElementById("prompt");
+ const value=input.value.trim();
+ if(!value)return;
+
+ const messages=document.getElementById("messages");
+
+ const user=document.createElement("div");
+ user.className="message";
+ user.textContent="You: "+value;
+ messages.appendChild(user);
+
+ const reply=document.createElement("div");
+ reply.className="message";
+ reply.innerHTML='<span class="ai">Animora:</span> Claude is not connected yet. We'll connect the real Claude AI through our secure backend in the next stage.';
+ messages.appendChild(reply);
+
+ input.value="";
+ messages.scrollTop=messages.scrollHeight;
+};
+
+window.exportVideo=()=>{
+ alert("Video export is coming in a future version. The current version is a 3D scene prototype.");
+};
+</script>
+
+</body>
+  </html>
+  
